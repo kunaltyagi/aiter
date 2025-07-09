@@ -982,6 +982,7 @@ def _flash_attn_forward(
     grid = lambda META: (  # noqa: E731
         batch * num_q_heads * triton.cdiv(seqlen_q, META["BLOCK_M"]),
     )
+    softmax_lse = None
 
     _attn_fwd[grid](
         q,
