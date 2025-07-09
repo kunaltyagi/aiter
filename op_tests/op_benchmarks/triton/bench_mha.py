@@ -44,7 +44,16 @@ def nonvarlen_benchmark_configs():
         (2, 48, 48, 3996, 9639),
         (2, 48, 48, 8181, 1021),
     ]
-    return configs
+    config = []
+#    for batch_size in (1,2,4,8,16,32,64,128,256):
+#        for num_key_heads in (5, 10, 20):
+#            for num_key in (8, 16, 24, 32, 48, 64, 96, 128):
+#                config.append((batch_size, num_key_heads, num_key_heads, num_key, num_key))
+    for batch_size in (1,2,4,8,16,32):
+        for num_key_heads in (2, 4, 8, 16, 32):
+            for num_key in (1024, 2048, 4096, 8192):
+                config.append((batch_size, num_key_heads, num_key_heads, num_key, num_key))
+    return config
 
 
 def varlen_benchmark_configs():
@@ -448,7 +457,7 @@ def run_benchmark(custom, args):
                     )
                     return grads
 
-        ms = triton.testing.do_bench(fn)
+        ms = triton.testing.do_bench(fn, rep=1000)
 
         total_flops = 2 * flops_per_matmul
         if mode == "bwd":
