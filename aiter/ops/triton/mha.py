@@ -285,7 +285,7 @@ def _attn_fwd_inner(
         q_shifted = qk * SM_SCALE - m_ij_scaled[:, None]
 
         # Compute scaled QK and softmax probabilities
-        p = tl.math.exp2(q_shifted)
+        p = tl.math.exp(q_shifted)
 
         # CAVEAT: Must update l_ij before applying dropout
         l_ij = tl.sum(p, 1)
@@ -310,7 +310,7 @@ def _attn_fwd_inner(
         # alpha is an adjustment factor for acc and li as we loop and find new maxes
         # store the diff in maxes to adjust acc and li as we discover new maxes
         m_diff_scaled = m_i * SM_SCALE - m_ij_scaled
-        alpha = tl.math.exp2(m_diff_scaled)
+        alpha = tl.math.exp(m_diff_scaled)
         acc = acc * alpha[:, None]
         v = _load_fn(v_ptrs, k_offs_n, k_offs_k, seqlen_k, BLOCK_DMODEL)
         # -- update m_i and l_i
