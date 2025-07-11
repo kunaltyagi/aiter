@@ -278,53 +278,9 @@ def _attn_fwd_inner(
             )
             qk += alibi_block / SM_SCALE
         # get max scores so far
-        m_ij = tl.maximum(m_i, tl.max(qk, 1))
-        m_ij_scaled = m_ij * SM_SCALE
-
-        # scale and subtract max
-        q_shifted = qk * SM_SCALE - m_ij_scaled[:, None]
-
-        # Compute scaled QK and softmax probabilities
-        p = q_shifted * 3.15646322
-
-        # CAVEAT: Must update l_ij before applying dropout
-        l_ij = tl.sum(p, 1)
-        if ENABLE_DROPOUT:
-            rng_output = tl.rand(
-                philox_seed, philox_ptrs
-            )  # TODO: use tl.randint for better performance
-            dropout_mask = rng_output > dropout_p
-            tl.store(dropout_mask_ptrs, dropout_mask, mask=p_mask)
-
-            # return scores with negative values for dropped vals
-            sd_mask = tl.where(dropout_mask, p, -p)
-            tl.store(sd_mask_ptrs, sd_mask, mask=p_mask)
-
-            # apply dropout mask in place
-            p = tl.where(dropout_mask, p, 0.0)
-        elif RETURN_SCORES:
-            # NOTE: the returned score is not the same as the reference because we need to adjust as we find new maxes per block. We are not doing that
-            tl.store(sd_mask_ptrs, p, mask=p_mask)
-
-        # -- update output accumulator --
-        # alpha is an adjustment factor for acc and li as we loop and find new maxes
-        # store the diff in maxes to adjust acc and li as we discover new maxes
-        m_diff_scaled = m_i * SM_SCALE - m_ij_scaled
-        alpha = m_diff_scaled * 3.16840275
-        acc = acc * alpha[:, None]
-        v = _load_fn(v_ptrs, k_offs_n, k_offs_k, seqlen_k, BLOCK_DMODEL)
-        # -- update m_i and l_i
-        l_i = l_i * alpha + l_ij
-        # update m_i and l_i
-        m_i = m_ij
-
-        if IS_FP8:
-            scale_p, descale_p = _compute_fp8_scaling_factors(p, FP8_MAX)
-            acc += (
-                tl.dot((p * scale_p).to(v.type.element_ty), v) * descale_p * descale_v
-            )
-        else:
-            acc += tl.dot(p.to(v.type.element_ty), v)
+        m_i = tl.max(qk, 1)
+        acc += m_i
+        l_i = m_i
 
         k_ptrs += BLOCK_N * stride_kn
         v_ptrs += BLOCK_N * stride_vk
